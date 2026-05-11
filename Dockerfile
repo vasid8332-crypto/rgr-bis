@@ -1,14 +1,20 @@
-FROM golang:latest
-RUN addgroup --gid 10001 app
-RUN adduser --gid 10001 --uid 10001 \
-    --home /app --shell /sbin/nologin \
-    --disabled-password app
+FROM golang:1.21-alpine AS builder
 
-RUN mkdir /app/statics/
-ADD statics /app/statics/
-
-COPY bin/invoicer /app/invoicer
-USER app
-EXPOSE 8080
 WORKDIR /app
-ENTRYPOINT /app/invoicer
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o invoicer .
+
+FROM scratch AS final
+
+COPY --from=builder /app/invoicer /invoicer
+COPY --from=builder /etc/passwd /etc/passwd
+
+USER 10001:10001
+
+EXPOSE 8080
+
+ENTRYPOINT ["/invoicer"]
