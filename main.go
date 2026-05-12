@@ -23,6 +23,7 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"github.com/wader/gormstore"
 	"go.mozilla.org/mozlog"
+        "golang.org/x/crypto/bcrypt"
 )
 
 func init() {
@@ -34,6 +35,29 @@ func init() {
 type invoicer struct {
 	db    *gorm.DB
 	store *gormstore.Store
+}
+
+func clickjackingProtection() func(http.Handler) http.Handler {
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            w.Header().Set("X-Frame-Options", "DENY")
+            next.ServeHTTP(w, r)
+        })
+    }
+}
+
+func redirectToHTTPS(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        if r.Header.Get("X-Forwarded-Proto") == "http" {
+            target := "https://" + r.Host + r.URL.Path
+            if r.URL.RawQuery != "" {
+                target += "?" + r.URL.RawQuery
+            }
+            http.Redirect(w, r, target, http.StatusMovedPermanently)
+            return
+        }
+        next.ServeHTTP(w, r)
+    })
 }
 
 func main() {
@@ -78,12 +102,14 @@ func main() {
 		http.StripPrefix("/statics/", http.FileServer(http.Dir("./statics"))),
 	).Methods("GET")
 
-	log.Fatal(http.ListenAndServe(":8080",
+	log.Fatal(http.ListenAndServeTLS(":8443", "cert.pem", "key.pem",
 		HandleMiddlewares(
 			r,
 			addRequestID(),
 			logRequest(),
 			setResponseHeaders(),
+                        clickjackingProtection(),
+                        redirectToHTTPS(),
 		),
 	))
 }
@@ -241,4 +267,16 @@ func getVersion(w http.ResponseWriter, r *http.Request) {
 "commit": "%s",
 "build": "https://circleci.com/gh/Securing-DevOps/invoicer/"
 }`, version, commit)))
+}
+
+// hashPassword хэширует пароль с помощью bcrypt
+func hashPassword(password string) (string, error) {
+    bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+    return string(bytes), err
+}
+
+// checkPasswordHash проверяет, соответствует ли пароль хэшу
+func checkPasswordHash(password, hash string) bool {
+    err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+    return err == nil
 }
