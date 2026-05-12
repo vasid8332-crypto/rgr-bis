@@ -32,3 +32,7 @@ github.com/wader/gormstore
 # go.mozilla.org/mozlog v0.0.0-20170222151521-4bb13139d403
 ## explicit
 go.mozilla.org/mozlog
+# golang.org/x/crypto v0.51.0
+## explicit; go 1.25.0
+golang.org/x/crypto/bcrypt
+golang.org/x/crypto/blowfish

@@ -16,4 +16,5 @@ require (
 	github.com/lib/pq v1.10.7 // indirect
 	github.com/mattn/go-sqlite3 v1.14.16 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
+	golang.org/x/crypto v0.51.0 // indirect
 )

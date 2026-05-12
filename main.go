@@ -46,18 +46,20 @@ func clickjackingProtection() func(http.Handler) http.Handler {
     }
 }
 
-func redirectToHTTPS(next http.Handler) http.Handler {
-    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        if r.Header.Get("X-Forwarded-Proto") == "http" {
-            target := "https://" + r.Host + r.URL.Path
-            if r.URL.RawQuery != "" {
-                target += "?" + r.URL.RawQuery
+func redirectToHTTPS() func(http.Handler) http.Handler {
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            if r.Header.Get("X-Forwarded-Proto") == "http" {
+                target := "https://" + r.Host + r.URL.Path
+                if r.URL.RawQuery != "" {
+                    target += "?" + r.URL.RawQuery
+                }
+                http.Redirect(w, r, target, http.StatusMovedPermanently)
+                return
             }
-            http.Redirect(w, r, target, http.StatusMovedPermanently)
-            return
-        }
-        next.ServeHTTP(w, r)
-    })
+            next.ServeHTTP(w, r)
+        })
+    }
 }
 
 func main() {
